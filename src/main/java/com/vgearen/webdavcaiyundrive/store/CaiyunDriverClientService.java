@@ -22,6 +22,7 @@ import com.vgearen.webdavcaiyundrive.model.operatefolder.CreateFolderRequest;
 import com.vgearen.webdavcaiyundrive.model.operatefolder.RenameFolderRequest;
 import com.vgearen.webdavcaiyundrive.model.operatefolder.result.CatalogInfo;
 import com.vgearen.webdavcaiyundrive.model.operatefolder.result.CatalogInfoData;
+import com.vgearen.webdavcaiyundrive.model.operatefolder.result.CreateFolderResult;
 import com.vgearen.webdavcaiyundrive.model.upload.PreUploadRequest;
 import com.vgearen.webdavcaiyundrive.model.upload.UploadContentList;
 import com.vgearen.webdavcaiyundrive.model.upload.result.PreUploadData;
@@ -333,6 +334,7 @@ public class CaiyunDriverClientService {
         OperateRequest removeRequest = new OperateRequest();
         removeRequest.setCreateBatchOprTaskReq(createBatchOprTaskReq);
         client.post("/orchestration/personalCloud/batchOprTask/v1.0/createBatchOprTask", removeRequest);
+//        client.post("/orchestration/personalCloud/batchOprTask/v1.0/createBatchOprTask", removeRequest);
         clearCache();
     }
 
@@ -344,28 +346,22 @@ public class CaiyunDriverClientService {
             LOGGER.warn("创建目录失败，未发现父级目录：{}", pathInfo.getParentPath());
             return;
         }
-        CommonAccountInfo commonAccountInfo = new CommonAccountInfo();
-        commonAccountInfo.setAccount(Cookie.getTel());
-
-        CreateCatalogExtReq createCatalogExtReq = new CreateCatalogExtReq();
-        createCatalogExtReq.setNewCatalogName(pathInfo.getName());
-        createCatalogExtReq.setParentCatalogID(parent.getFileId());
-        createCatalogExtReq.setCommonAccountInfo(commonAccountInfo);
 
         CreateFolderRequest createFileRequest = new CreateFolderRequest();
-        createFileRequest.setCreateCatalogExtReq(createCatalogExtReq);
+        createFileRequest.setParentFileId(parent.getFileId());
+        createFileRequest.setName(pathInfo.getName());
 
-        String json = client.post("/orchestration/personalCloud/catalog/v1.0/createCatalogExt", createFileRequest);
-        CaiyunResponse<CatalogInfoData> createFolderRes = JsonUtil.readValue(json, new TypeReference<CaiyunResponse<CatalogInfoData>>() {
+        // 新api
+        String json = client.post("https://personal-kd-njs.yun.139.com/hcy/file/create", createFileRequest);
+        CaiyunResponse<CreateFolderResult> createFolderResult = JsonUtil.readValue(json, new TypeReference<CaiyunResponse<CreateFolderResult>>() {
         });
-        CatalogInfo catalogInfo = createFolderRes.getData().getCatalogInfo();
-        if (catalogInfo.getCatalogName() == null) {
+
+        if (createFolderResult.getData().getFileName() == null) {
             LOGGER.error("创建目录{}失败: {}", path, json);
         }
-        if (!catalogInfo.getCatalogName().equals(pathInfo.getName())) {
-            LOGGER.info("创建目录{}与原值{}不同，重命名", catalogInfo.getCatalogName(), pathInfo.getName());
-            rename(pathInfo.getParentPath() + "/" + catalogInfo.getCatalogName(), pathInfo.getName());
-            clearCache();
+        if (!createFolderResult.getData().getFileName().equals(pathInfo.getName())) {
+            LOGGER.info("创建目录{}与原值{}不同，重命名", createFolderResult.getData().getFileName(), pathInfo.getName());
+            rename(pathInfo.getParentPath() + "/" + createFolderResult.getData().getFileName(), pathInfo.getName());
         }
         clearCache();
     }
