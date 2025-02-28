@@ -13,15 +13,8 @@ import com.vgearen.webdavcaiyundrive.model.download.result.DownloadData;
 import com.vgearen.webdavcaiyundrive.model.filelist.FileListRequest;
 import com.vgearen.webdavcaiyundrive.model.filelist.PageInfo;
 import com.vgearen.webdavcaiyundrive.model.filelist.result.*;
-import com.vgearen.webdavcaiyundrive.model.operate.CreateBatchOprTaskReq;
-import com.vgearen.webdavcaiyundrive.model.operate.OperateRequest;
-import com.vgearen.webdavcaiyundrive.model.operate.RenameContentRequest;
-import com.vgearen.webdavcaiyundrive.model.operate.TaskInfo;
-import com.vgearen.webdavcaiyundrive.model.operatefolder.CreateCatalogExtReq;
+import com.vgearen.webdavcaiyundrive.model.operate.*;
 import com.vgearen.webdavcaiyundrive.model.operatefolder.CreateFolderRequest;
-import com.vgearen.webdavcaiyundrive.model.operatefolder.RenameFolderRequest;
-import com.vgearen.webdavcaiyundrive.model.operatefolder.result.CatalogInfo;
-import com.vgearen.webdavcaiyundrive.model.operatefolder.result.CatalogInfoData;
 import com.vgearen.webdavcaiyundrive.model.operatefolder.result.CreateFolderResult;
 import com.vgearen.webdavcaiyundrive.model.upload.PreUploadRequest;
 import com.vgearen.webdavcaiyundrive.model.upload.UploadContentList;
@@ -313,28 +306,12 @@ public class CaiyunDriverClientService {
         if (cFile == null) {
             return;
         }
-        CommonAccountInfo commonAccountInfo = new CommonAccountInfo();
-        commonAccountInfo.setAccount(Cookie.getTel());
 
-        TaskInfo taskInfo = new TaskInfo();
-        if (cFile.getFileType().equalsIgnoreCase(FileType.folder.name())) {
-            taskInfo.setCatalogInfoList(Arrays.asList(cFile.getFileId()));
-            taskInfo.setContentInfoList(new ArrayList<>());
-        } else {
-            taskInfo.setContentInfoList(Arrays.asList(cFile.getFileId()));
-            taskInfo.setCatalogInfoList(new ArrayList<>());
-        }
+        RemoveRequest removeRequest = new RemoveRequest();
+        removeRequest.setFileId(cFile.getFileId());
 
-        CreateBatchOprTaskReq createBatchOprTaskReq = new CreateBatchOprTaskReq();
-        createBatchOprTaskReq.setTaskType(OperateType.TASK_TYPE_DELETE);
-        createBatchOprTaskReq.setActionType(OperateType.ACTION_TYPE_DELETE);
-        createBatchOprTaskReq.setCommonAccountInfo(commonAccountInfo);
-        createBatchOprTaskReq.setTaskInfo(taskInfo);
-
-        OperateRequest removeRequest = new OperateRequest();
-        removeRequest.setCreateBatchOprTaskReq(createBatchOprTaskReq);
-        client.post("/orchestration/personalCloud/batchOprTask/v1.0/createBatchOprTask", removeRequest);
-//        client.post("/orchestration/personalCloud/batchOprTask/v1.0/createBatchOprTask", removeRequest);
+        // 新api
+        client.post("https://personal-kd-njs.yun.139.com/hcy/recyclebin/batchTrash", removeRequest);
         clearCache();
     }
 
@@ -369,24 +346,13 @@ public class CaiyunDriverClientService {
     public void rename(String sourcePath, String newName) {
         sourcePath = normalizingPath(sourcePath);
         CFile cFile = getCFileByPath(sourcePath);
-        if (cFile.getFileType().equalsIgnoreCase(FileType.folder.name())) {
-            RenameFolderRequest renameFolderRequest = new RenameFolderRequest();
-            renameFolderRequest.setCatalogID(cFile.getFileId());
-            renameFolderRequest.setCatalogName(newName);
-            CommonAccountInfo commonAccountInfo = new CommonAccountInfo();
-            commonAccountInfo.setAccount(Cookie.getTel());
-            renameFolderRequest.setCommonAccountInfo(commonAccountInfo);
-            client.post("/orchestration/personalCloud/catalog/v1.0/updateCatalogInfo", renameFolderRequest);
-        } else {
-            RenameContentRequest renameContentRequest = new RenameContentRequest();
-            renameContentRequest.setContentID(cFile.getFileId());
-            renameContentRequest.setContentName(newName);
-            CommonAccountInfo commonAccountInfo = new CommonAccountInfo();
-            commonAccountInfo.setAccount(Cookie.getTel());
-            renameContentRequest.setCommonAccountInfo(commonAccountInfo);
-            client.post("/orchestration/personalCloud/content/v1.0/updateContentInfo", renameContentRequest);
 
-        }
+        RenameRequest renameRequest = new RenameRequest();
+        renameRequest.setFileId(cFile.getFileId());
+        renameRequest.setName(newName);
+        // 新api
+        client.post("https://personal-kd-njs.yun.139.com/hcy/file/update", renameRequest);
+
         clearCache();
     }
 
@@ -397,28 +363,11 @@ public class CaiyunDriverClientService {
         CFile sourceCFile = getCFileByPath(sourcePath);
         CFile targetCFile = getCFileByPath(targetPath);
 
-        CommonAccountInfo commonAccountInfo = new CommonAccountInfo();
-        commonAccountInfo.setAccount(Cookie.getTel());
+        MoveRequest moveRequest = new MoveRequest();
+        moveRequest.setFileId(sourceCFile.getFileId());
+        moveRequest.setToParentFileId(targetCFile.getFileId());
 
-        TaskInfo taskInfo = new TaskInfo();
-        if (sourceCFile.getFileType().equalsIgnoreCase(FileType.folder.name())) {
-            taskInfo.setCatalogInfoList(Arrays.asList(sourceCFile.getFileId()));
-            taskInfo.setContentInfoList(new ArrayList<>());
-        } else {
-            taskInfo.setContentInfoList(Arrays.asList(sourceCFile.getFileId()));
-            taskInfo.setCatalogInfoList(new ArrayList<>());
-        }
-        taskInfo.setNewCatalogID(targetCFile.getFileId());
-        CreateBatchOprTaskReq createBatchOprTaskReq = new CreateBatchOprTaskReq();
-        createBatchOprTaskReq.setTaskType(OperateType.TASK_TYPE_MOVE);
-        createBatchOprTaskReq.setActionType(OperateType.ACTION_TYPE_MOVE);
-        createBatchOprTaskReq.setCommonAccountInfo(commonAccountInfo);
-        createBatchOprTaskReq.setTaskInfo(taskInfo);
-
-        OperateRequest operateRequest = new OperateRequest();
-        operateRequest.setCreateBatchOprTaskReq(createBatchOprTaskReq);
-
-        client.post("/orchestration/personalCloud/batchOprTask/v1.0/createBatchOprTask", operateRequest);
+        client.post("https://personal-kd-njs.yun.139.com/hcy/file/batchMove", moveRequest);
         clearCache();
     }
 
