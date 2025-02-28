@@ -1,43 +1,65 @@
 package com.vgearen.webdavcaiyundrive.model.filelist;
 
-import com.vgearen.webdavcaiyundrive.model.CommonAccountInfo;
-import com.vgearen.webdavcaiyundrive.model.Page;
 
-public class FileListRequest extends Page {
-    private String catalogID;
-    private Integer catalogSortType = 0;
-    private Integer contentSortType = 0;
-    private CommonAccountInfo commonAccountInfo;
+import java.util.Arrays;
+import java.util.List;
 
-    public String getCatalogID() {
-        return catalogID;
+public class FileListRequest {
+    private PageInfo pageInfo;
+    /**
+     * 排序依据，默认上传时间
+     */
+    private String orderBy = "updated_at";
+    /**
+     * 排序方式
+     */
+    private String orderDirection = "DESC";
+    /**
+     * 父目录id
+     */
+    private String parentFileId;
+    /**
+     * 缩略图样式列表
+     */
+    private List<String> imageThumbnailStyleList = Arrays.asList("Small", "Large");
+
+    public PageInfo getPageInfo() {
+        return pageInfo;
     }
 
-    public void setCatalogID(String catalogID) {
-        this.catalogID = catalogID;
+    public void setPageInfo(PageInfo pageInfo) {
+        this.pageInfo = pageInfo;
     }
 
-    public Integer getCatalogSortType() {
-        return catalogSortType;
+    public String getOrderBy() {
+        return orderBy;
     }
 
-    public void setCatalogSortType(Integer catalogSortType) {
-        this.catalogSortType = catalogSortType;
+    public void setOrderBy(String orderBy) {
+        this.orderBy = orderBy;
     }
 
-    public CommonAccountInfo getCommonAccountInfo() {
-        return commonAccountInfo;
+    public String getOrderDirection() {
+        return orderDirection;
     }
 
-    public void setCommonAccountInfo(CommonAccountInfo commonAccountInfo) {
-        this.commonAccountInfo = commonAccountInfo;
+    public void setOrderDirection(String orderDirection) {
+        this.orderDirection = orderDirection;
     }
 
-    public Integer getContentSortType() {
-        return contentSortType;
+    public String getParentFileId() {
+        return parentFileId;
     }
 
-    public void setContentSortType(Integer contentSortType) {
-        this.contentSortType = contentSortType;
+    public void setParentFileId(String parentFileId) {
+        this.parentFileId = parentFileId;
+    }
+
+    public List<String> getImageThumbnailStyleList() {
+        return imageThumbnailStyleList;
+    }
+
+    public void setImageThumbnailStyleList(List<String> imageThumbnailStyleList) {
+        this.imageThumbnailStyleList = imageThumbnailStyleList;
     }
 }

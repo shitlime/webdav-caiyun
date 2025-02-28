@@ -1,29 +1,32 @@
 
 package com.vgearen.webdavcaiyundrive.model.filelist.result;
 
-import com.vgearen.webdavcaiyundrive.model.Result;
+import java.util.List;
 
 public class FileListData {
+    /**
+     * 文件数据
+     */
+    private List<Item> items;
 
-     
-    private GetDiskResult getDiskResult;
-     
-    private Result result;
+    /**
+     * 下一页光标
+     */
+    private String nextPageCursor;
 
-    public GetDiskResult getGetDiskResult() {
-        return getDiskResult;
+    public List<Item> getItems() {
+        return items;
     }
 
-    public void setGetDiskResult(GetDiskResult getDiskResult) {
-        this.getDiskResult = getDiskResult;
+    public void setItems(List<Item> items) {
+        this.items = items;
     }
 
-    public Result getResult() {
-        return result;
+    public String getNextPageCursor() {
+        return nextPageCursor;
     }
 
-    public void setResult(Result result) {
-        this.result = result;
+    public void setNextPageCursor(String nextPageCursor) {
+        this.nextPageCursor = nextPageCursor;
     }
-
 }

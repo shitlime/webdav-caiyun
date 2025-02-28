@@ -55,7 +55,8 @@ public class CaiyunDriverClient {
                 String key = EncryptUtil.getRandomSring(16);
                 Request request = chain.request();
                 String sign = "";
-                if (request.url().url().getHost().equals("yun.139.com")) {
+                String host = request.url().url().getHost();
+                if (host.equals("yun.139.com") || host.equals("personal-kd-njs.yun.139.com")) {
                     sign = EncryptUtil.getNewSign(bodyToString(request), dateNowStr, key);
                     request = request.newBuilder()
                             .removeHeader("User-Agent")
@@ -70,8 +71,11 @@ public class CaiyunDriverClient {
                             .addHeader("caller", "web")
                             .addHeader("CMS-DEVICE", "default")
                             .addHeader("x-DeviceInfo", "||9|85.0.4183.83|chrome|85.0.4183.83|||windows 10||zh-CN|||")
+                            .addHeader("x-yun-client-info", "||9|85.0.4183.83|chrome|85.0.4183.83|||windows 10||zh-CN|||")
+                            .addHeader("x-yun-api-version", "v1")
+                            .addHeader("x-yun-app-channel", "10000034")
                             .addHeader("x-SvcType", "1")
-                            .addHeader("referer", "https://yun.139.com/w/")
+                            .addHeader("referer", "https://yun.139.com/")
                             .addHeader("Authorization", token)
                             .build();
                 }

@@ -11,10 +11,8 @@ import com.vgearen.webdavcaiyundrive.model.*;
 import com.vgearen.webdavcaiyundrive.model.download.DownloadRequest;
 import com.vgearen.webdavcaiyundrive.model.download.result.DownloadData;
 import com.vgearen.webdavcaiyundrive.model.filelist.FileListRequest;
-import com.vgearen.webdavcaiyundrive.model.filelist.result.CatalogList;
-import com.vgearen.webdavcaiyundrive.model.filelist.result.ContentList;
-import com.vgearen.webdavcaiyundrive.model.filelist.result.FileListData;
-import com.vgearen.webdavcaiyundrive.model.filelist.result.PathInfo;
+import com.vgearen.webdavcaiyundrive.model.filelist.PageInfo;
+import com.vgearen.webdavcaiyundrive.model.filelist.result.*;
 import com.vgearen.webdavcaiyundrive.model.operate.CreateBatchOprTaskReq;
 import com.vgearen.webdavcaiyundrive.model.operate.OperateRequest;
 import com.vgearen.webdavcaiyundrive.model.operate.RenameContentRequest;
@@ -93,7 +91,7 @@ public class CaiyunDriverClientService {
     }
 
     private Set<CFile> getCFilesWithNoRepeat(String catalogId) {
-        List<CFile> cFiles = fileListFromApi(catalogId, 1, new ArrayList<>());
+        List<CFile> cFiles = fileListFromApi(catalogId, null, new ArrayList<>());
         cFiles.sort(Comparator.comparing(CFile::getUpdateTime).reversed());
         Set<CFile> cFileSet = new LinkedHashSet<>();
         for (CFile item : cFiles) {
@@ -160,7 +158,7 @@ public class CaiyunDriverClientService {
         if (rootCFile == null) {
             rootCFile = new CFile();
             rootCFile.setName("/");
-            rootCFile.setFileId("00019700101000000001");
+            rootCFile.setFileId("/");
             rootCFile.setCreateTime(new Date());
             rootCFile.setUpdateTime(new Date());
             rootCFile.setFileType(FileType.folder.name());
@@ -168,68 +166,44 @@ public class CaiyunDriverClientService {
         return rootCFile;
     }
 
-    public List<CFile> fileListFromApi(String catalogID, Integer startNum, List<CFile> all) {
+    public List<CFile> fileListFromApi(String parentFileId, String pageCursor, List<CFile> all) {
         FileListRequest listQuery = new FileListRequest();
-        CommonAccountInfo commonAccountInfo = new CommonAccountInfo();
-        commonAccountInfo.setAccount(Cookie.getTel());
-        listQuery.setCommonAccountInfo(commonAccountInfo);
-        listQuery.setCatalogID(catalogID);
-        listQuery.setStartNumber(startNum);
-        listQuery.setEndNumber(startNum + 99);
-        listQuery.setCatalogSortType(0);
-        listQuery.setContentSortType(0);
-        listQuery.setFilterType(0);
-        listQuery.setSortDirection(1);
+        PageInfo pageInfo = new PageInfo();
+        pageInfo.setPageSize(100);
+        pageInfo.setPageCursor(pageCursor);
+        listQuery.setParentFileId(parentFileId);
+        listQuery.setPageInfo(pageInfo);
 
-        SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
 
-        String json = client.post("/orchestration/personalCloud/catalog/v1.0/getDisk", listQuery);
+        // 新api
+        String json = client.post("https://personal-kd-njs.yun.139.com/hcy/file/list", listQuery);
         CaiyunResponse<FileListData> cFileListResult = JsonUtil.readValue(json, new TypeReference<CaiyunResponse<FileListData>>() {
         });
-        if (null != cFileListResult.getData().getGetDiskResult()) {
-            List<CatalogList> catalogLists = cFileListResult.getData().getGetDiskResult().getCatalogList();
-            if (null != catalogLists) {
-                for (CatalogList item : cFileListResult.getData().getGetDiskResult().getCatalogList()) {
-                    CFile cFile = new CFile();
-                    cFile.setFileType("folder");
-                    cFile.setName(item.getCatalogName());
-                    cFile.setFileId(item.getCatalogID());
-                    try {
-                        Date updateTime = format.parse(item.getUpdateTime());
-                        Date createTime = format.parse(item.getCreateTime());
-                        cFile.setUpdateTime(updateTime);
-                        cFile.setCreateTime(createTime);
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
-                    all.add(cFile);
-                }
-            }
-            List<ContentList> contentLists = cFileListResult.getData().getGetDiskResult().getContentList();
-            if (null != contentLists) {
-                for (ContentList item : cFileListResult.getData().getGetDiskResult().getContentList()) {
-                    CFile cFile = new CFile();
-                    cFile.setFileType("file");
-                    cFile.setName(item.getContentName());
-                    cFile.setFileId(item.getContentID());
-                    try {
-                        Date updateTime = format.parse(item.getUpdateTime());
-                        Date createTime = format.parse(item.getUploadTime());
-                        cFile.setUpdateTime(updateTime);
-                        cFile.setCreateTime(createTime);
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
-                    cFile.setSize(item.getContentSize());
-                    all.add(cFile);
-                }
-            }
 
+        if (cFileListResult.getData().getItems() != null) {
+            for (Item item : cFileListResult.getData().getItems()) {
+                CFile cFile = new CFile();
+                cFile.setFileId(item.getFileId());
+                cFile.setFileType(item.getType());
+                cFile.setName(item.getName());
+                try {
+                    Date updateTime = format.parse(item.getUpdatedAt());
+                    Date createTime = format.parse(item.getCreatedAt());
+                    cFile.setUpdateTime(updateTime);
+                    cFile.setCreateTime(createTime);
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+                all.add(cFile);
+            }
         }
-        if (Integer.valueOf(cFileListResult.getData().getGetDiskResult().getIsCompleted()).equals(1)) {
+
+        String nextPageCursor = cFileListResult.getData().getNextPageCursor();
+        if (nextPageCursor == null) {
             return all;
         }
-        return fileListFromApi(catalogID, startNum + 100, all);
+        return fileListFromApi(parentFileId, nextPageCursor, all);
     }
 
     public Response download(String path, HttpServletRequest request, long size) {
