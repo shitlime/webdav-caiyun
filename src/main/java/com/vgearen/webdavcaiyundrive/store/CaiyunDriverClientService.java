@@ -10,6 +10,7 @@ import com.vgearen.webdavcaiyundrive.config.Cookie;
 import com.vgearen.webdavcaiyundrive.model.*;
 import com.vgearen.webdavcaiyundrive.model.download.DownloadRequest;
 import com.vgearen.webdavcaiyundrive.model.download.result.DownloadData;
+import com.vgearen.webdavcaiyundrive.model.download.result.DownloadResult;
 import com.vgearen.webdavcaiyundrive.model.filelist.FileListRequest;
 import com.vgearen.webdavcaiyundrive.model.filelist.PageInfo;
 import com.vgearen.webdavcaiyundrive.model.filelist.result.*;
@@ -199,15 +200,14 @@ public class CaiyunDriverClientService {
 
     public Response download(String path, HttpServletRequest request, long size) {
         CFile cFile = getCFileByPath(path);
-        CommonAccountInfo commonAccountInfo = new CommonAccountInfo();
-        commonAccountInfo.setAccount(Cookie.getTel());
+
         DownloadRequest downloadRequest = new DownloadRequest();
-        downloadRequest.setContentID(cFile.getFileId());
-        downloadRequest.setCommonAccountInfo(commonAccountInfo);
-        String json = client.post("/orchestration/personalCloud/uploadAndDownload/v1.0/downloadRequest", downloadRequest);
-        CaiyunResponse<DownloadData> downloadUrl = JsonUtil.readValue(json, new TypeReference<CaiyunResponse<DownloadData>>() {
-        });
-        String url = downloadUrl.getData().getDownloadURL();
+        downloadRequest.setFileId(cFile.getFileId());
+
+        String json = client.post("https://personal-kd-njs.yun.139.com/hcy/file/getDownloadUrl", downloadRequest);
+        CaiyunResponse<DownloadResult> downloadResult =
+                JsonUtil.readValue(json, new TypeReference<CaiyunResponse<DownloadResult>>() {});
+        String url = downloadResult.getData().getUrl();
         LOGGER.debug("{} url = {}", path, url);
         return client.download(url, request, size);
     }

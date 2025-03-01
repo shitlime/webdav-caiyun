@@ -213,7 +213,7 @@ public class CaiyunDriverClient {
                 .addHeader("User-Agent", caiyunProperties.getAgent())
                 .put(new InputStreamRequestBody(inputStream, MediaType.parse("application/octet-stream"), byteCount,
                         (written, total) -> {
-                        System.out.print("\r上传进度：" + (written * 100) / total + "% ");
+                        System.out.print("\r上传进度：" + (written * 100) / total + "%  | ");
                 }))
                 .url(url).build();
         try (Response response = okHttpClient.newCall(request).execute()) {
