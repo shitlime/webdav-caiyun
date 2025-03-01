@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.vgearen.webdavcaiyundrive.config.CaiyunProperties;
 import com.vgearen.webdavcaiyundrive.config.Cookie;
 import com.vgearen.webdavcaiyundrive.model.CaiyunResponse;
+import com.vgearen.webdavcaiyundrive.store.InputStreamRequestBody;
 import com.vgearen.webdavcaiyundrive.util.EncryptUtil;
 import com.vgearen.webdavcaiyundrive.util.JsonUtil;
 import net.sf.webdav.exceptions.WebdavException;
@@ -15,6 +16,7 @@ import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
@@ -179,6 +181,40 @@ public class CaiyunDriverClient {
                 .addHeader("Sec-GPC", "1")
                 .addHeader("User-Agent", caiyunProperties.getAgent())
                 .put(RequestBody.create(MediaType.parse("application/octet-stream"), bytes, 0, byteCount))
+                .url(url).build();
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            LOGGER.info("upload: {}, code: {}", url, response.code());
+            if (!response.isSuccessful()) {
+                LOGGER.error("请求失败，url={}, code={}, resp={}", url, response.code(), response.body().string());
+                throw new WebdavException("请求失败：" + url);
+            }
+        } catch (IOException e) {
+            throw new WebdavException(e);
+        }
+    }
+
+    /**
+     * 上传
+     * @param url         URL
+     * @param byteCount   总字节数
+     * @param inputStream 文件
+     */
+    public void upload(String url, final long byteCount, InputStream inputStream) {
+        Request request = new Request.Builder()
+                .addHeader("Referer", caiyunProperties.getUrl())
+                .addHeader("Origin", caiyunProperties.getUrl())
+                .addHeader("Content-type", "application/octet-stream")
+                .addHeader("Connection", "keep-alive")
+                .addHeader("Content-Length", String.valueOf(byteCount))
+                .addHeader("Sec-Fetch-Dest", "empty")
+                .addHeader("Sec-Fetch-Mode", "cors")
+                .addHeader("Sec-Fetch-Site", "cross-site")
+                .addHeader("Sec-GPC", "1")
+                .addHeader("User-Agent", caiyunProperties.getAgent())
+                .put(new InputStreamRequestBody(inputStream, MediaType.parse("application/octet-stream"), byteCount,
+                        (written, total) -> {
+                        System.out.print("\r上传进度：" + (written * 100) / total + "% ");
+                }))
                 .url(url).build();
         try (Response response = okHttpClient.newCall(request).execute()) {
             LOGGER.info("upload: {}, code: {}", url, response.code());

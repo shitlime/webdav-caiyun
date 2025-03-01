@@ -18,16 +18,10 @@ import com.vgearen.webdavcaiyundrive.model.operatefolder.CreateFolderRequest;
 import com.vgearen.webdavcaiyundrive.model.operatefolder.result.CreateFolderResult;
 import com.vgearen.webdavcaiyundrive.model.upload.PostUploadRequest;
 import com.vgearen.webdavcaiyundrive.model.upload.PreUploadRequest;
-import com.vgearen.webdavcaiyundrive.model.upload.UploadContentList;
-import com.vgearen.webdavcaiyundrive.model.upload.result.PostUploadResult;
-import com.vgearen.webdavcaiyundrive.model.upload.result.PreUploadData;
 import com.vgearen.webdavcaiyundrive.model.upload.result.PreUploadResult;
-import com.vgearen.webdavcaiyundrive.model.upload.result.UploadResult;
-import com.vgearen.webdavcaiyundrive.util.HashUtil;
 import com.vgearen.webdavcaiyundrive.util.JsonUtil;
 import net.sf.webdav.exceptions.WebdavException;
 import okhttp3.Response;
-import org.apache.tomcat.util.http.fileupload.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +29,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
@@ -48,7 +41,6 @@ public class CaiyunDriverClientService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CaiyunDriverClientService.class);
     private static ObjectMapper objectMapper = new ObjectMapper();
     private static String rootPath = "/";
-    private static long chunkSize = 100 * 1024 * 1024; // 100MB
     private CFile rootCFile = null;
 
     private static Cache<String, Set<CFile>> cFilesCache = Caffeine.newBuilder()
@@ -244,7 +236,6 @@ public class CaiyunDriverClientService {
         }
 
 
-        int chunkCount = (int) Math.ceil(((double) size) / chunkSize); // 进1法
         PreUploadRequest preUploadRequest = new PreUploadRequest();
         preUploadRequest.setParentFileId(parent.getFileId());
         preUploadRequest.setName(pathInfo.getName());
@@ -262,35 +253,19 @@ public class CaiyunDriverClientService {
             throw new RuntimeException(e);
         }
 
-        // 直接一段上传整个，避免complete api未知报错
+        // 获取一个 url 上传整个文件，避免多url分段上传导致 complete api 未知报错
         ArrayList<PreUploadRequest.PartInfos> partInfos = new ArrayList<>();
-//        PreUploadRequest.PartInfos pi = preUploadRequest.new PartInfos();
-//        PreUploadRequest.PartInfos.ParallelHashCtx phc = pi.new ParallelHashCtx();
-//        phc.setPartOffset(0L);
-//        pi.setParallelHashCtx(phc);
-//        pi.setPartNumber(1);
-//        pi.setPartSize(size);
-//        partInfos.add(pi);
+        PreUploadRequest.PartInfos pi = preUploadRequest.new PartInfos();
+        PreUploadRequest.PartInfos.ParallelHashCtx phc = pi.new ParallelHashCtx();
+        phc.setPartOffset(0L);
+        pi.setParallelHashCtx(phc);
+        pi.setPartNumber(1);
+        pi.setPartSize(size);
+        partInfos.add(pi);
 
-        for (int i = 0; i < chunkCount; i++) {
-            PreUploadRequest.PartInfos pi = preUploadRequest.new PartInfos();
-            PreUploadRequest.PartInfos.ParallelHashCtx phc = pi.new ParallelHashCtx();
-            phc.setPartOffset(chunkSize * i);
-            pi.setParallelHashCtx(phc);
-            pi.setPartNumber(i + 1);
-            // 1. size < cs，取size
-            if (size <= chunkSize) {
-                pi.setPartSize(size);
-            } else {
-                // 2. size > cs, 计算余量取小值
-                long left = size - (chunkSize * i);
-                pi.setPartSize(Math.min(left, chunkSize));
-            }
-            partInfos.add(pi);
-        }
         preUploadRequest.setPartInfos(partInfos);
 
-        LOGGER.info("开始上传文件，文件名：{}，总大小：{}, 文件块数量：{}", path, size, chunkCount);
+        LOGGER.info("开始上传文件，文件名：{}，总大小：{}", path, size);
         String json = client.post("https://personal-kd-njs.yun.139.com/hcy/file/create", preUploadRequest);
         CaiyunResponse<PreUploadResult> preUploadRes =
                 JsonUtil.readValue(json, new TypeReference<CaiyunResponse<PreUploadResult>>() {});
@@ -304,27 +279,16 @@ public class CaiyunDriverClientService {
         if (size > 0) {
             virtualCFileService.createCFile(parent.getFileId(), preUploadRes.getData());
         }
-        assert chunkSize < Integer.MAX_VALUE;
-        byte[] buffer = new byte[(int) chunkSize];
-        if (chunkCount == 0) {
-            chunkCount++;
-        }
-        for (int i = 0; i < chunkCount; i++) {
-            try {
-                int read = IOUtils.read(cachingInputStream.getCachedInputStream(), buffer, 0, buffer.length);
-                if (read == -1) {
-                    LOGGER.info("文件上传结束。文件名：{}，当前进度：{}/{}", path, (i + 1), chunkCount);
-                    return;
-                }
-                client.upload(preUploadRes.getData().getPartInfos().get(i).getUploadUrl(), buffer,
-                        preUploadRequest.getPartInfos().get(i).getPartSize().intValue());
-                virtualCFileService.updateLength(parent.getFileId(), preUploadRes.getData().getFileId(), buffer.length);
-                LOGGER.info("文件正在上传。文件名：{}，当前进度：{}/{}", path, (i + 1), chunkCount);
-            } catch (IOException e) {
-                virtualCFileService.remove(parent.getFileId(), preUploadRes.getData().getFileId());
-                e.printStackTrace();
-                throw new WebdavException(e);
-            }
+
+        // upload file inputStream
+        LOGGER.info("文件正在上传。文件名：{}", path);
+        try {
+            client.upload(preUploadRes.getData().getPartInfos().get(0).getUploadUrl(),
+                    size, cachingInputStream.getCachedInputStream());
+        } catch (IOException e) {
+            LOGGER.error("上传文件时错误：{}", e.toString());
+            e.printStackTrace();
+            throw new WebdavException(e);
         }
         cachingInputStream.cleanUp();
 
