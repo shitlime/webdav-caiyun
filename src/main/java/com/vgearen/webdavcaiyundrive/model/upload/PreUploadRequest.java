@@ -1,91 +1,149 @@
-
 package com.vgearen.webdavcaiyundrive.model.upload;
 
-import com.vgearen.webdavcaiyundrive.model.CommonAccountInfo;
+import com.vgearen.webdavcaiyundrive.model.UploadPreRequest;
 
 import java.util.List;
 
 public class PreUploadRequest {
+    private String parentFileId;
+    private String name;
+    private String type;
+    private Long size;
+    /**
+     * 默认
+     */
+    private String fileRenameMode = "auto_rename";
+    private String contentHash;
+    private String contentHashAlgorithm;
+    /**
+     * 默认
+     */
+    private String contentType = "application/oct-stream";
+    /**
+     * 默认 false
+     */
+    private Boolean parallelUpload = Boolean.FALSE;
+    private List<PartInfos> partInfos;
 
-    
-    private CommonAccountInfo commonAccountInfo;
-    
-    private Integer fileCount;
-    
-    private Integer manualRename;
-    
-    private String newCatalogName = "";
-    
-    private Integer operation;
-    
-    private String parentCatalogID;
-    
-    private Long totalSize;
-    
-    private List<UploadContentList> uploadContentList;
+    public class PartInfos {
+        private ParallelHashCtx parallelHashCtx;
+        private Integer partNumber;
+        private Long partSize;
 
-    public CommonAccountInfo getCommonAccountInfo() {
-        return commonAccountInfo;
+        public class ParallelHashCtx {
+            private Long partOffset;
+
+            public Long getPartOffset() {
+                return partOffset;
+            }
+
+            public void setPartOffset(Long partOffset) {
+                this.partOffset = partOffset;
+            }
+        }
+
+        public ParallelHashCtx getParallelHashCtx() {
+            return parallelHashCtx;
+        }
+
+        public void setParallelHashCtx(ParallelHashCtx parallelHashCtx) {
+            this.parallelHashCtx = parallelHashCtx;
+        }
+
+        public Integer getPartNumber() {
+            return partNumber;
+        }
+
+        public void setPartNumber(Integer partNumber) {
+            this.partNumber = partNumber;
+        }
+
+        public Long getPartSize() {
+            return partSize;
+        }
+
+        public void setPartSize(Long partSize) {
+            this.partSize = partSize;
+        }
     }
 
-    public void setCommonAccountInfo(CommonAccountInfo commonAccountInfo) {
-        this.commonAccountInfo = commonAccountInfo;
+    public String getParentFileId() {
+        return parentFileId;
     }
 
-    public Integer getFileCount() {
-        return fileCount;
+    public void setParentFileId(String parentFileId) {
+        this.parentFileId = parentFileId;
     }
 
-    public void setFileCount(Integer fileCount) {
-        this.fileCount = fileCount;
+    public String getName() {
+        return name;
     }
 
-    public Integer getManualRename() {
-        return manualRename;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public void setManualRename(Integer manualRename) {
-        this.manualRename = manualRename;
+    public String getType() {
+        return type;
     }
 
-    public String getNewCatalogName() {
-        return newCatalogName;
+    public void setType(String type) {
+        this.type = type;
     }
 
-    public void setNewCatalogName(String newCatalogName) {
-        this.newCatalogName = newCatalogName;
+    public Long getSize() {
+        return size;
     }
 
-    public Integer getOperation() {
-        return operation;
+    public void setSize(Long size) {
+        this.size = size;
     }
 
-    public void setOperation(Integer operation) {
-        this.operation = operation;
+    public String getFileRenameMode() {
+        return fileRenameMode;
     }
 
-    public String getParentCatalogID() {
-        return parentCatalogID;
+    public void setFileRenameMode(String fileRenameMode) {
+        this.fileRenameMode = fileRenameMode;
     }
 
-    public void setParentCatalogID(String parentCatalogID) {
-        this.parentCatalogID = parentCatalogID;
+    public String getContentHash() {
+        return contentHash;
     }
 
-    public Long getTotalSize() {
-        return totalSize;
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
     }
 
-    public void setTotalSize(Long totalSize) {
-        this.totalSize = totalSize;
+    public String getContentHashAlgorithm() {
+        return contentHashAlgorithm;
     }
 
-    public List<UploadContentList> getUploadContentList() {
-        return uploadContentList;
+    public void setContentHashAlgorithm(String contentHashAlgorithm) {
+        this.contentHashAlgorithm = contentHashAlgorithm;
     }
 
-    public void setUploadContentList(List<UploadContentList> uploadContentList) {
-        this.uploadContentList = uploadContentList;
+    public String getContentType() {
+        return contentType;
     }
 
+    public void setContentType(String contentType) {
+        this.contentType = contentType;
+    }
+
+    public Boolean getParallelUpload() {
+        return parallelUpload;
+    }
+
+    public void setParallelUpload(Boolean parallelUpload) {
+        this.parallelUpload = parallelUpload;
+    }
+
+    public List<PartInfos> getPartInfos() {
+        return partInfos;
+    }
+
+    public void setPartInfos(List<PartInfos> partInfos) {
+        this.partInfos = partInfos;
+    }
 }

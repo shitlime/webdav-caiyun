@@ -166,6 +166,31 @@ public class CaiyunDriverClient {
         }
     }
 
+    public void upload(String url, byte[] bytes, final int byteCount) {
+        Request request = new Request.Builder()
+                .addHeader("Referer", caiyunProperties.getUrl())
+                .addHeader("Origin", caiyunProperties.getUrl())
+                .addHeader("Content-type", "application/octet-stream")
+                .addHeader("Connection", "keep-alive")
+                .addHeader("Content-Length", String.valueOf(byteCount))
+                .addHeader("Sec-Fetch-Dest", "empty")
+                .addHeader("Sec-Fetch-Mode", "cors")
+                .addHeader("Sec-Fetch-Site", "cross-site")
+                .addHeader("Sec-GPC", "1")
+                .addHeader("User-Agent", caiyunProperties.getAgent())
+                .put(RequestBody.create(MediaType.parse("application/octet-stream"), bytes, 0, byteCount))
+                .url(url).build();
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            LOGGER.info("upload: {}, code: {}", url, response.code());
+            if (!response.isSuccessful()) {
+                LOGGER.error("请求失败，url={}, code={}, resp={}", url, response.code(), response.body().string());
+                throw new WebdavException("请求失败：" + url);
+            }
+        } catch (IOException e) {
+            throw new WebdavException(e);
+        }
+    }
+
     public String post(String url, Object body) {
         String bodyAsJson = JsonUtil.toJson(body);
         Request request = new Request.Builder()

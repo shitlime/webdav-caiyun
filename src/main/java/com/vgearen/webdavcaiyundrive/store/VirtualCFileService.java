@@ -1,9 +1,8 @@
 package com.vgearen.webdavcaiyundrive.store;
 
 import com.vgearen.webdavcaiyundrive.model.FileType;
-import com.vgearen.webdavcaiyundrive.model.UploadPreResult;
 import com.vgearen.webdavcaiyundrive.model.CFile;
-import com.vgearen.webdavcaiyundrive.model.upload.result.PreUploadData;
+import com.vgearen.webdavcaiyundrive.model.upload.result.PreUploadResult;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
@@ -22,9 +21,9 @@ public class VirtualCFileService {
     /**
      * 创建文件
      */
-    public void createCFile(String parentId, PreUploadData preUploadData) {
+    public void createCFile(String parentId, PreUploadResult preUploadResult) {
         Map<String, CFile> cFileMap = virtualCFileMap.computeIfAbsent(parentId, s -> new ConcurrentHashMap<>());
-        cFileMap.put(preUploadData.getUploadResult().getNewContentIDList().get(0).getContentID(), convert(preUploadData));
+        cFileMap.put(preUploadResult.getFileId(), convert(preUploadResult));
     }
 
     public void updateLength(String parentId, String fileId, long length) {
@@ -56,11 +55,11 @@ public class VirtualCFileService {
         return cFileMap.values();
     }
 
-    private CFile convert(PreUploadData preUploadData) {
+    private CFile convert(PreUploadResult preUploadResult) {
         CFile cFile = new CFile();
         cFile.setCreateTime(new Date());
-        cFile.setFileId(preUploadData.getUploadResult().getNewContentIDList().get(0).getContentID());
-        cFile.setName(preUploadData.getUploadResult().getNewContentIDList().get(0).getContentName());
+        cFile.setFileId(preUploadResult.getFileId());
+        cFile.setName(preUploadResult.getFileName());
         cFile.setFileType(FileType.file.name());
         cFile.setUpdateTime(new Date());
         cFile.setSize(0L);

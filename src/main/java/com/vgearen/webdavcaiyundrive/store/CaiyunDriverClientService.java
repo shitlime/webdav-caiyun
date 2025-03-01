@@ -16,10 +16,14 @@ import com.vgearen.webdavcaiyundrive.model.filelist.result.*;
 import com.vgearen.webdavcaiyundrive.model.operate.*;
 import com.vgearen.webdavcaiyundrive.model.operatefolder.CreateFolderRequest;
 import com.vgearen.webdavcaiyundrive.model.operatefolder.result.CreateFolderResult;
+import com.vgearen.webdavcaiyundrive.model.upload.PostUploadRequest;
 import com.vgearen.webdavcaiyundrive.model.upload.PreUploadRequest;
 import com.vgearen.webdavcaiyundrive.model.upload.UploadContentList;
+import com.vgearen.webdavcaiyundrive.model.upload.result.PostUploadResult;
 import com.vgearen.webdavcaiyundrive.model.upload.result.PreUploadData;
+import com.vgearen.webdavcaiyundrive.model.upload.result.PreUploadResult;
 import com.vgearen.webdavcaiyundrive.model.upload.result.UploadResult;
+import com.vgearen.webdavcaiyundrive.util.HashUtil;
 import com.vgearen.webdavcaiyundrive.util.JsonUtil;
 import net.sf.webdav.exceptions.WebdavException;
 import okhttp3.Response;
@@ -31,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
@@ -43,7 +48,7 @@ public class CaiyunDriverClientService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CaiyunDriverClientService.class);
     private static ObjectMapper objectMapper = new ObjectMapper();
     private static String rootPath = "/";
-    private static int chunkSize = 10485760; // 100MB
+    private static long chunkSize = 100 * 1024 * 1024; // 100MB
     private CFile rootCFile = null;
 
     private static Cache<String, Set<CFile>> cFilesCache = Caffeine.newBuilder()
@@ -240,27 +245,58 @@ public class CaiyunDriverClientService {
 
 
         int chunkCount = (int) Math.ceil(((double) size) / chunkSize); // 进1法
-        CommonAccountInfo commonAccountInfo = new CommonAccountInfo();
-        commonAccountInfo.setAccount(Cookie.getTel());
         PreUploadRequest preUploadRequest = new PreUploadRequest();
-        preUploadRequest.setParentCatalogID(parent.getFileId());
-        preUploadRequest.setManualRename(2);
-        preUploadRequest.setOperation(0);
-        preUploadRequest.setFileCount(1);
-        preUploadRequest.setTotalSize(size);
-        preUploadRequest.setCommonAccountInfo(commonAccountInfo);
+        preUploadRequest.setParentFileId(parent.getFileId());
+        preUploadRequest.setName(pathInfo.getName());
+        preUploadRequest.setType("file");
+        preUploadRequest.setSize(size);
+        preUploadRequest.setContentHashAlgorithm("SHA256");
+        String sha256;
+        CachingInputStreamWrapper cachingInputStream = new CachingInputStreamWrapper(inputStream);
+        try {
+            sha256 = cachingInputStream.cacheAndCalculateHash();
+            preUploadRequest.setContentHash(sha256);
+        } catch (Exception e) {
+            LOGGER.error("计算文件SHA256出错：{}", e.toString());
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
 
-        UploadContentList uploadContentList = new UploadContentList();
-        uploadContentList.setContentName(pathInfo.getName());
-        uploadContentList.setContentSize(size);
-        preUploadRequest.setUploadContentList(Arrays.asList(uploadContentList));
+        // 直接一段上传整个，避免complete api未知报错
+        ArrayList<PreUploadRequest.PartInfos> partInfos = new ArrayList<>();
+//        PreUploadRequest.PartInfos pi = preUploadRequest.new PartInfos();
+//        PreUploadRequest.PartInfos.ParallelHashCtx phc = pi.new ParallelHashCtx();
+//        phc.setPartOffset(0L);
+//        pi.setParallelHashCtx(phc);
+//        pi.setPartNumber(1);
+//        pi.setPartSize(size);
+//        partInfos.add(pi);
+
+        for (int i = 0; i < chunkCount; i++) {
+            PreUploadRequest.PartInfos pi = preUploadRequest.new PartInfos();
+            PreUploadRequest.PartInfos.ParallelHashCtx phc = pi.new ParallelHashCtx();
+            phc.setPartOffset(chunkSize * i);
+            pi.setParallelHashCtx(phc);
+            pi.setPartNumber(i + 1);
+            // 1. size < cs，取size
+            if (size <= chunkSize) {
+                pi.setPartSize(size);
+            } else {
+                // 2. size > cs, 计算余量取小值
+                long left = size - (chunkSize * i);
+                pi.setPartSize(Math.min(left, chunkSize));
+            }
+            partInfos.add(pi);
+        }
+        preUploadRequest.setPartInfos(partInfos);
 
         LOGGER.info("开始上传文件，文件名：{}，总大小：{}, 文件块数量：{}", path, size, chunkCount);
-        String json = client.post("/orchestration/personalCloud/uploadAndDownload/v1.0/pcUploadFileRequest", preUploadRequest);
-        CaiyunResponse<PreUploadData> preUploadRes = JsonUtil.readValue(json, new TypeReference<CaiyunResponse<PreUploadData>>() {
-        });
-        UploadResult uploadResult = preUploadRes.getData().getUploadResult();
-        if (null == uploadResult.getRedirectionUrl()) {
+        String json = client.post("https://personal-kd-njs.yun.139.com/hcy/file/create", preUploadRequest);
+        CaiyunResponse<PreUploadResult> preUploadRes =
+                JsonUtil.readValue(json, new TypeReference<CaiyunResponse<PreUploadResult>>() {});
+
+
+        if (preUploadRes.getData().getRapidUpload()) {
             LOGGER.info("{} 秒传成功", path);
             return;
         }
@@ -268,33 +304,39 @@ public class CaiyunDriverClientService {
         if (size > 0) {
             virtualCFileService.createCFile(parent.getFileId(), preUploadRes.getData());
         }
-        byte[] buffer = new byte[chunkSize];
+        assert chunkSize < Integer.MAX_VALUE;
+        byte[] buffer = new byte[(int) chunkSize];
         if (chunkCount == 0) {
             chunkCount++;
         }
-        long point = 0;
         for (int i = 0; i < chunkCount; i++) {
             try {
-                int read = IOUtils.read(inputStream, buffer, 0, buffer.length);
+                int read = IOUtils.read(cachingInputStream.getCachedInputStream(), buffer, 0, buffer.length);
                 if (read == -1) {
                     LOGGER.info("文件上传结束。文件名：{}，当前进度：{}/{}", path, (i + 1), chunkCount);
                     return;
                 }
-                client.upload(uploadResult.getRedirectionUrl()
-                        , buffer, 0, read, uploadResult.getUploadTaskID(), size, point
-                        , uploadResult.getNewContentIDList().get(0).getContentName());
-                point += read;
-                virtualCFileService.updateLength(parent.getFileId()
-                        , uploadResult.getNewContentIDList().get(0).getContentID(), buffer.length);
+                client.upload(preUploadRes.getData().getPartInfos().get(i).getUploadUrl(), buffer,
+                        preUploadRequest.getPartInfos().get(i).getPartSize().intValue());
+                virtualCFileService.updateLength(parent.getFileId(), preUploadRes.getData().getFileId(), buffer.length);
                 LOGGER.info("文件正在上传。文件名：{}，当前进度：{}/{}", path, (i + 1), chunkCount);
             } catch (IOException e) {
-                virtualCFileService.remove(parent.getFileId(), uploadResult.getNewContentIDList().get(0).getContentID());
+                virtualCFileService.remove(parent.getFileId(), preUploadRes.getData().getFileId());
                 e.printStackTrace();
                 throw new WebdavException(e);
             }
         }
+        cachingInputStream.cleanUp();
 
-        virtualCFileService.remove(parent.getFileId(), uploadResult.getNewContentIDList().get(0).getContentID());
+        // complete api
+        PostUploadRequest postUploadRequest = new PostUploadRequest();
+        postUploadRequest.setFileId(preUploadRes.getData().getFileId());
+        postUploadRequest.setUploadId(preUploadRes.getData().getUploadId());
+        postUploadRequest.setContentHashAlgorithm("SHA256");
+        postUploadRequest.setContentHash(sha256);
+        client.post("https://personal-kd-njs.yun.139.com/hcy/file/complete", postUploadRequest);
+
+        virtualCFileService.remove(parent.getFileId(), preUploadRes.getData().getFileId());
         LOGGER.info("文件上传成功。文件名：{}", path);
         clearCache();
     }
