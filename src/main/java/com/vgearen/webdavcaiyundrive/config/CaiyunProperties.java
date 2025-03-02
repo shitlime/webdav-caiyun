@@ -17,6 +17,11 @@ public class CaiyunProperties {
 
     private String referer = "";
 
+    /**
+     * 上传时临时文件内存阈值（例如 100MB）,文件大小超过此值会使用硬盘来存储临时文件
+     */
+    private Integer cacheMemoryLimit = 100 * 1024 * 1024;
+
     public String getAccount() {
         return account;
     }
@@ -87,6 +92,14 @@ public class CaiyunProperties {
 
     public void setWorkDir(String workDir) {
         this.workDir = workDir;
+    }
+
+    public Integer getCacheMemoryLimit() {
+        return cacheMemoryLimit;
+    }
+
+    public void setCacheMemoryLimit(Integer cacheMemoryLimit) {
+        this.cacheMemoryLimit = cacheMemoryLimit;
     }
 
     public static class Auth {

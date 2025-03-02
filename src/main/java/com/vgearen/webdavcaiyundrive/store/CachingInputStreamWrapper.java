@@ -1,5 +1,7 @@
 package com.vgearen.webdavcaiyundrive.store;
 
+import com.vgearen.webdavcaiyundrive.config.CaiyunProperties;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -8,14 +10,15 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class CachingInputStreamWrapper {
+    private final CaiyunProperties caiyunProperties;
     private final InputStream originalInput;
     private ByteArrayOutputStream memoryBuffer; // 内存缓存（小文件）
     private Path tempFile;        // 临时文件（大文件）
     private boolean isCachedToDisk = false;
-    private static final int MEMORY_THRESHOLD = 50 * 1024 * 1024; // 内存阈值（例如 50MB）
 
-    public CachingInputStreamWrapper(InputStream input) {
+    public CachingInputStreamWrapper(InputStream input, CaiyunProperties caiyunProperties) {
         this.originalInput = input;
+        this.caiyunProperties = caiyunProperties;
     }
 
     /**
@@ -46,7 +49,7 @@ public class CachingInputStreamWrapper {
             totalRead += bytesRead;
 
             // 超过内存阈值时切换到临时文件
-            if (totalRead > MEMORY_THRESHOLD && !isCachedToDisk) {
+            if (totalRead > caiyunProperties.getCacheMemoryLimit() && !isCachedToDisk) {
                 // 创建临时文件
                 tempFile = Files.createTempFile("caiyundrive-upload-cache-", ".tmp");
                 tempFile.toFile().deleteOnExit();

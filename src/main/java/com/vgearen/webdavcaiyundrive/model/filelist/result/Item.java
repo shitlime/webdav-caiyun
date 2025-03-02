@@ -30,21 +30,21 @@ public class Item {
     /**
      * 缩略图URL
      */
-    // todo 给缩略图创建新的类保存数据
+    // todo （可扩展）给缩略图创建新的类保存数据
     private List thumbnailUrls;
     // todo 类型未知
     private Object punishMode;
     private Boolean systemDir;
     private String revisionId;
-    // todo 创建新的类保存数据
+    // todo （可扩展）创建新的类保存数据
     private Object mediaMetaInfo;
-    // todo 创建新的类保存数据
+    // todo （可扩展）创建新的类保存数据
     private Object metadataAuditInfo;
-    // todo 创建新的类保存数据
+    // todo （可扩展）创建新的类保存数据
     private Object contentAuditInfo;
-    // todo 创建新的类保存数据
+    // todo （可扩展）创建新的类保存数据
     private List userTags;
-    // todo 创建新的类保存数据
+    // todo （可扩展）创建新的类保存数据
     private Object addressDetail;
 
     public String getFileId() {

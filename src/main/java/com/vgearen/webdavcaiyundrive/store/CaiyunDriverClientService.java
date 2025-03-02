@@ -1,15 +1,11 @@
 package com.vgearen.webdavcaiyundrive.store;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.vgearen.webdavcaiyundrive.client.CaiyunDriverClient;
-import com.vgearen.webdavcaiyundrive.config.CaiyunProperties;
-import com.vgearen.webdavcaiyundrive.config.Cookie;
 import com.vgearen.webdavcaiyundrive.model.*;
 import com.vgearen.webdavcaiyundrive.model.download.DownloadRequest;
-import com.vgearen.webdavcaiyundrive.model.download.result.DownloadData;
 import com.vgearen.webdavcaiyundrive.model.download.result.DownloadResult;
 import com.vgearen.webdavcaiyundrive.model.filelist.FileListRequest;
 import com.vgearen.webdavcaiyundrive.model.filelist.PageInfo;
@@ -40,9 +36,11 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class CaiyunDriverClientService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CaiyunDriverClientService.class);
-    private static ObjectMapper objectMapper = new ObjectMapper();
     private static String rootPath = "/";
     private CFile rootCFile = null;
+
+    @Autowired
+    private CachingInputStreamWrapperFactory cacheWrapperFactory;
 
     private static Cache<String, Set<CFile>> cFilesCache = Caffeine.newBuilder()
             .initialCapacity(128)
@@ -53,11 +51,7 @@ public class CaiyunDriverClientService {
     private final CaiyunDriverClient client;
 
     @Autowired
-    private CaiyunProperties caiyunProperties;
-
-    @Autowired
     private VirtualCFileService virtualCFileService;
-    private PreUploadRequest preUploadRequest;
 
     public CaiyunDriverClientService(CaiyunDriverClient caiyunDriverClient) {
         this.client = caiyunDriverClient;
@@ -243,7 +237,7 @@ public class CaiyunDriverClientService {
         preUploadRequest.setSize(size);
         preUploadRequest.setContentHashAlgorithm("SHA256");
         String sha256;
-        CachingInputStreamWrapper cachingInputStream = new CachingInputStreamWrapper(inputStream);
+        CachingInputStreamWrapper cachingInputStream = cacheWrapperFactory.create(inputStream);
         try {
             sha256 = cachingInputStream.cacheAndCalculateHash();
             preUploadRequest.setContentHash(sha256);
