@@ -26,6 +26,9 @@
 - `caiyun.tel`： 和彩云的注册号码
 - `caiyun.auth.user-name`：`可选` 默认admin
 - `caiyun.auth.password`：`可选` 默认admin
+- `caiyun.cacheMemoryLimit`： `可选` 上传时临时文件内存阈值（默认 100MB）,
+文件大小超过此值会使用硬盘来存储临时文件。如果 *机器内存小* 或 *同时上传多个大文件* 
+，建议调整为更小的值。
 
 
 ### Docker
